@@ -35,33 +35,83 @@ done
 
 set -e
 
+# Warna untuk output
 GREEN='\033[0;32m'
-NC='\033[0m'
+NC='\033[0m' # No Color
+RED='\033[0;31m'
 
 # Ambil IP lokal
 local_ip=$(hostname -I | awk '{print $1}')
 
 echo -e "${GREEN}================= STEP 1: Install Node.js v18 =================${NC}"
-# Tambahkan repositori NodeSource untuk Node.js 18.x
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# Fungsi untuk cek versi Node.js
+check_node_version() {
+    if command -v node > /dev/null 2>&1; then
+        NODE_VERSION=$(node -v | cut -d 'v' -f 2)
+        NODE_MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
 
-# Install Node.js
-sudo apt install -y nodejs
+        if [ "$NODE_MAJOR_VERSION" -eq 18 ]; then
+            return 0  # Versi cocok
+        else
+            return 1  # Versi tidak cocok
+        fi
+    else
+        return 1  # Node tidak ditemukan
+    fi
+}
 
+# Eksekusi pengecekan
+if check_node_version; then
+    NODE_VERSION=$(node -v | cut -d 'v' -f 2)
+    echo -e "${GREEN}============================================================================${NC}"
+    echo -e "${GREEN}=========== Node.js versi ${NODE_VERSION} sudah terinstall. ================${NC}"
+    echo -e "${GREEN}========================= Lanjut install Mongo DB ==========================${NC}"
+    echo -e "${GREEN}============================================================================${NC}"
+else
+    echo -e "${GREEN}Node.js belum terinstall atau versinya tidak sesuai. Menginstal versi 18...${NC}"
+    # Install Node.js v18
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt install -y nodejs
+fi
+
+# Cek ulang setelah install
+if ! check_node_version; then
+    echo -e "${RED}Gagal menginstal Node.js versi 18.${NC}"
+    exit 1
+fi
+
+# Tampilkan versi Node.js
 echo -e "${GREEN}Node.js version: $(node -v)${NC}"
 
-echo -e "${GREEN}================= STEP 2: Install MongoDB v6.0 =================${NC}"
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+echo -e "${GREEN}================= STEP 2: Install MongoDB v7.0 =================${NC}"
+# Cek apakah MongoDB sudah aktif
+if sudo systemctl is-active --quiet mongod; then
+    echo -e "${GREEN}============================================================================${NC}"
+    echo -e "${GREEN}=================== MongoDB sudah terinstall sebelumnya. ===================${NC}"
+    echo -e "${GREEN}=================== Lanjut Menginstal GenieACS =============================${NC}"
+    echo -e "${GREEN}============================================================================${NC}"
+else
+    # Tambahkan repository MongoDB v7.0 (update sesuai kebutuhan)
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 
-wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor | sudo tee /usr/share/keyrings/mongodb-server-7.0.gpg > /dev/null
-sudo apt update
-sudo apt install -y mongodb-org
+    # Tambahkan GPG key
+    wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor | sudo tee /usr/share/keyrings/mongodb-server-7.0.gpg > /dev/null
 
+    # Update dan install
+    sudo apt update
+    sudo apt install -y mongodb-org
 
-apt update
-apt install -y mongodb-org
-systemctl enable --now mongod
+    # Enable dan start MongoDB
+    sudo systemctl enable --now mongod
 
+    # Cek lagi apakah MongoDB berhasil aktif
+    if ! sudo systemctl is-active --quiet mongod; then
+        echo -e "${RED}MongoDB gagal diinstal atau tidak berjalan dengan benar.${NC}"
+        exit 1
+    fi
+fi
+
+# Tampilkan versi MongoDB
 echo -e "${GREEN}MongoDB version: $(mongod --version | grep "db version")${NC}"
 
 echo -e "${GREEN}================= STEP 3: Install GenieACS 1.2.13 ================${NC}"
