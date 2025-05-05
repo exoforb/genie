@@ -254,7 +254,10 @@ if [ "$install_css" == "y" ]; then
     if [ -f "genie/app-LU66VFYW.css" ] && [ -f "genie/logo-3976e73d.svg" ]; then
         sudo cp genie/app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
         sudo cp genie/logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
-        echo -e "${GREEN}✅ File CSS dan logo berhasil dicopy.${NC}"
+echo -e "${GREEN}============================================================================${NC}"
+echo -e "${GREEN}======================= Custom CSS sudah terinstall. =======================${NC}"
+echo -e "${GREEN}========================= Lanjut install Parameter ==========================${NC}"
+echo -e "${GREEN}============================================================================${NC}"
     else
         echo -e "${RED}❌ File CSS atau logo tidak ditemukan di folder ./genie. Pastikan file tersebut ada.${NC}"
     fi
@@ -278,3 +281,7 @@ done
 
 cd ..
 sudo mongorestore --db=genieacs --drop genie
+echo -e "${GREEN}============================================================================${NC}"
+echo -e "${GREEN}========================= Semua sudah terinstall ===========================${NC}"
+echo -e "${GREEN}============================== By Exo Net ==================================${NC}"
+echo -e "${GREEN}============================================================================${NC}"
