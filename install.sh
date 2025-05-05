@@ -251,9 +251,9 @@ read install_css
 if [ "$install_css" == "y" ]; then
     echo -e "${GREEN}Meng-copy file CSS dan logo ke folder publik GenieACS...${NC}"
     
-    if [ -f "genie/app-LU66VFYW.css" ] && [ -f "genie/logo-3976e73d.svg" ]; then
-        sudo cp genie/app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
-        sudo cp genie/logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
+    if [ -f "app-LU66VFYW.css" ] && [ -f "logo-3976e73d.svg" ]; then
+        sudo cp app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
+        sudo cp logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
 echo -e "${GREEN}============================================================================${NC}"
 echo -e "${GREEN}======================= Custom CSS sudah terinstall. =======================${NC}"
 echo -e "${GREEN}========================= Lanjut install Parameter ==========================${NC}"
