@@ -186,5 +186,5 @@ for ((i = 5; i >= 1; i--)); do
     echo "Lanjut Install Parameter $i. Tekan ctrl+c untuk membatalkan"
 done
 
-cd -
-sudo mongorestore --db=genieacs --drop new-genieacs
+cd ..
+sudo mongorestore --db=genieacs --drop genie
