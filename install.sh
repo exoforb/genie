@@ -41,9 +41,12 @@ NC='\033[0m'
 # Ambil IP lokal
 local_ip=$(hostname -I | awk '{print $1}')
 
-echo -e "${GREEN}================= STEP 1: Install Node.js v16 =================${NC}"
-curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
-apt-get install -y nodejs
+echo -e "${GREEN}================= STEP 1: Install Node.js v18 =================${NC}"
+# Tambahkan repositori NodeSource untuk Node.js 18.x
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+
+# Install Node.js
+sudo apt install -y nodejs
 
 echo -e "${GREEN}Node.js version: $(node -v)${NC}"
 
