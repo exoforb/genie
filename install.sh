@@ -143,7 +143,7 @@ if ! systemctl is-active --quiet genieacs-cwmp; then
     mkdir -p /opt/genieacs/ext
     chown genieacs:genieacs /opt/genieacs/ext
 
-    cat << EOF > /opt/genieacs/genieacs.env
+    cat << 'EOF' > /opt/genieacs/genieacs.env
 GENIEACS_CWMP_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-cwmp-access.log
 GENIEACS_NBI_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-nbi-access.log
 GENIEACS_FS_ACCESS_LOG_FILE=/var/log/genieacs/genieacs-fs-access.log
@@ -161,7 +161,7 @@ EOF
     chown genieacs:genieacs /var/log/genieacs
 
     # Create service files
-    cat << EOF > /etc/systemd/system/genieacs-cwmp.service
+    cat << 'EOF' > /etc/systemd/system/genieacs-cwmp.service
 [Unit]
 Description=GenieACS CWMP
 After=network.target
@@ -175,7 +175,7 @@ ExecStart=/usr/bin/genieacs-cwmp
 WantedBy=default.target
 EOF
 
-    cat << EOF > /etc/systemd/system/genieacs-nbi.service
+    cat << 'EOF' > /etc/systemd/system/genieacs-nbi.service
 [Unit]
 Description=GenieACS NBI
 After=network.target
@@ -189,7 +189,7 @@ ExecStart=/usr/bin/genieacs-nbi
 WantedBy=default.target
 EOF
 
-    cat << EOF > /etc/systemd/system/genieacs-fs.service
+    cat << 'EOF' > /etc/systemd/system/genieacs-fs.service
 [Unit]
 Description=GenieACS FS
 After=network.target
@@ -203,7 +203,7 @@ ExecStart=/usr/bin/genieacs-fs
 WantedBy=default.target
 EOF
 
-    cat << EOF > /etc/systemd/system/genieacs-ui.service
+    cat << 'EOF' > /etc/systemd/system/genieacs-ui.service
 [Unit]
 Description=GenieACS UI
 After=network.target
@@ -218,7 +218,7 @@ WantedBy=default.target
 EOF
 
     # Logrotate
-    cat << EOF > /etc/logrotate.d/genieacs
+    cat << 'EOF' > /etc/logrotate.d/genieacs
 /var/log/genieacs/*.log /var/log/genieacs/*.yaml {
     daily
     rotate 30
@@ -244,6 +244,24 @@ echo -e "${GREEN}========== GenieACS UI akses port 3000. : http://$local_ip:3000
 echo -e "${GREEN}============================================================================${NC}"
 echo -e "${GREEN}============================================================================${NC}"
 
+# CSS Custom
+echo -e "${GREEN}Apakah Anda ingin menginstall tampilan CSS kustom untuk GenieACS? (y/n)${NC}"
+read install_css
+
+if [ "$install_css" == "y" ]; then
+    echo -e "${GREEN}Meng-copy file CSS dan logo ke folder publik GenieACS...${NC}"
+    
+    if [ -f "genie/app-LU66VFYW.css" ] && [ -f "genie/logo-3976e73d.svg" ]; then
+        sudo cp genie/app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
+        sudo cp genie/logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
+        echo -e "${GREEN}✅ File CSS dan logo berhasil dicopy.${NC}"
+    else
+        echo -e "${RED}❌ File CSS atau logo tidak ditemukan di folder ./genie. Pastikan file tersebut ada.${NC}"
+    fi
+else
+    echo -e "${GREEN}Lewati install CSS kustom.${NC}"
+fi
+
 # Restore parameter MongoDB
 echo -e "${GREEN}Sekarang install parameter GenieACS. Lanjutkan? (y/n)${NC}"
 read confirmation
@@ -257,26 +275,6 @@ for ((i = 5; i >= 1; i--)); do
     sleep 1
     echo "Lanjut Install Parameter $i. Tekan ctrl+c untuk membatalkan"
 done
-
-echo -e "${GREEN}Apakah Anda ingin menginstall tampilan CSS kustom? (y/n)${NC}"
-read install_css
-
-if [ "$install_css" == "y" ]; then
-    echo -e "${GREEN}Meng-copy file CSS dan logo ke folder publik GenieACS...${NC}"
-
-    # Pastikan file sumber ada
-    if [ -f "genie/app-LU66VFYW.css" ] && [ -f "genie/logo-3976e73d.svg" ]; then
-        sudo cp genie/app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
-        sudo cp genie/logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
-
-        echo -e "${GREEN}File CSS dan logo berhasil dicopy.${NC}"
-    else
-        echo -e "${RED}File CSS atau logo tidak ditemukan di folder ./genie. Pastikan file tersebut ada.${NC}"
-    fi
-else
-    echo -e "${GREEN}Lewati install CSS kustom.${NC}"
-fi
-
 
 cd ..
 sudo mongorestore --db=genieacs --drop genie
