@@ -86,13 +86,15 @@ echo -e "${GREEN}================= STEP 2: Install MongoDB v7.0 ================
 check_mongo_version() {
     if command -v mongod > /dev/null 2>&1 && sudo systemctl is-active --quiet mongod; then
         MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}')
-        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | cut -d '.' -f 1)
+        # Hilangkan huruf 'v' jika ada di awal versi, lalu ambil angka mayor
+        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | sed 's/^v//' | cut -d '.' -f 1)
         if [ "$MONGO_MAJOR_VERSION" -eq 7 ]; then
             return 0  # Versi cocok
         fi
     fi
     return 1  # Tidak cocok atau tidak terinstal
 }
+
 
 # Eksekusi pengecekan
 if check_mongo_version; then
