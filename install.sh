@@ -233,7 +233,10 @@ EOF
 
     echo -e "${GREEN}================== Sukses install GenieACS ==================${NC}"
 else
-    echo -e "${GREEN}GenieACS sudah terinstall sebelumnya.${NC}"
+    echo -e "${GREEN}============================================================================${NC}"
+    echo -e "${GREEN}================ GenieACS 1.2.13 sudah terinstall.==========================${NC}"
+    echo -e "${GREEN}=================== Lanjut Install Parameter ===============================${NC}"
+    echo -e "${GREEN}============================================================================${NC}"
 fi
 
 echo -e "${GREEN}============================================================================${NC}"
@@ -242,7 +245,7 @@ echo -e "${GREEN}===============================================================
 echo -e "${GREEN}============================================================================${NC}"
 
 # Restore parameter MongoDB
-echo -e "${GREEN}Sekarang install parameter default GenieACS. Lanjutkan? (y/n)${NC}"
+echo -e "${GREEN}Sekarang install parameter GenieACS. Lanjutkan? (y/n)${NC}"
 read confirmation
 
 if [ "$confirmation" != "y" ]; then
