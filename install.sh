@@ -28,7 +28,7 @@ if [ "$confirmation" != "y" ]; then
 fi
 for ((i = 5; i >= 1; i--)); do
 	sleep 1
-    echo "Lanjut Boskuh... $i. Tekan ctrl+c untuk membatalkan"
+    echo "Tunggu Untuk Melanjutkan... $i. Tekan ctrl+c untuk membatalkan"
 done
 
 #!/bin/bash
@@ -80,39 +80,57 @@ if ! check_node_version; then
     exit 1
 fi
 
-# Tampilkan versi Node.js
-echo -e "${GREEN}Node.js version: $(node -v)${NC}"
+
+
+
 
 echo -e "${GREEN}================= STEP 2: Install MongoDB v7.0 =================${NC}"
-# Cek apakah MongoDB sudah aktif
-if sudo systemctl is-active --quiet mongod; then
+
+# Fungsi untuk cek versi MongoDB
+check_mongo_version() {
+    if command -v mongod > /dev/null 2>&1 && sudo systemctl is-active --quiet mongod; then
+        MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}')
+        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | cut -d '.' -f 1)
+        if [ "$MONGO_MAJOR_VERSION" -eq 7 ]; then
+            return 0  # Versi cocok
+        fi
+    fi
+    return 1  # Tidak cocok atau tidak terinstal
+}
+
+# Eksekusi pengecekan
+if check_mongo_version; then
+    MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}')
     echo -e "${GREEN}============================================================================${NC}"
-    echo -e "${GREEN}=================== MongoDB sudah terinstall sebelumnya. ===================${NC}"
+    echo -e "${GREEN}=========== MongoDB versi ${MONGO_VERSION} sudah terinstall. ================${NC}"
     echo -e "${GREEN}=================== Lanjut Menginstal GenieACS =============================${NC}"
     echo -e "${GREEN}============================================================================${NC}"
 else
-    # Tambahkan repository MongoDB v7.0 (update sesuai kebutuhan)
+    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v7.0...${NC}"
+
+    # Tambahkan repo MongoDB v7.0
     echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 
     # Tambahkan GPG key
     wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor | sudo tee /usr/share/keyrings/mongodb-server-7.0.gpg > /dev/null
 
-    # Update dan install
+    # Update & install MongoDB
     sudo apt update
     sudo apt install -y mongodb-org
 
-    # Enable dan start MongoDB
+    # Enable & start MongoDB
     sudo systemctl enable --now mongod
-
-    # Cek lagi apakah MongoDB berhasil aktif
-    if ! sudo systemctl is-active --quiet mongod; then
-        echo -e "${RED}MongoDB gagal diinstal atau tidak berjalan dengan benar.${NC}"
-        exit 1
-    fi
 fi
 
-# Tampilkan versi MongoDB
-echo -e "${GREEN}MongoDB version: $(mongod --version | grep "db version")${NC}"
+# Verifikasi ulang instalasi MongoDB
+if ! check_mongo_version; then
+    echo -e "${RED}Gagal menginstal MongoDB versi 7.0.${NC}"
+    exit 1
+fi
+
+
+
+
 
 echo -e "${GREEN}================= STEP 3: Install GenieACS 1.2.13 ================${NC}"
 
