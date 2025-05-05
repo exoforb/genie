@@ -258,5 +258,25 @@ for ((i = 5; i >= 1; i--)); do
     echo "Lanjut Install Parameter $i. Tekan ctrl+c untuk membatalkan"
 done
 
+echo -e "${GREEN}Apakah Anda ingin menginstall tampilan CSS kustom? (y/n)${NC}"
+read install_css
+
+if [ "$install_css" == "y" ]; then
+    echo -e "${GREEN}Meng-copy file CSS dan logo ke folder publik GenieACS...${NC}"
+
+    # Pastikan file sumber ada
+    if [ -f "genie/app-LU66VFYW.css" ] && [ -f "genie/logo-3976e73d.svg" ]; then
+        sudo cp genie/app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
+        sudo cp genie/logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
+
+        echo -e "${GREEN}File CSS dan logo berhasil dicopy.${NC}"
+    else
+        echo -e "${RED}File CSS atau logo tidak ditemukan di folder ./genie. Pastikan file tersebut ada.${NC}"
+    fi
+else
+    echo -e "${GREEN}Lewati install CSS kustom.${NC}"
+fi
+
+
 cd ..
 sudo mongorestore --db=genieacs --drop genie
