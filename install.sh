@@ -249,7 +249,7 @@ echo -e "${GREEN}Apakah Anda ingin menginstall tampilan CSS kustom untuk GenieAC
 read install_css
 
 if [ "$install_css" == "y" ]; then
-    echo -e "${GREEN}Meng-copy file CSS dan logo ke folder publik GenieACS...${NC}"
+    echo -e "${GREEN}Install custom CSS genieACS...${NC}"
     
     if [ -f "app-LU66VFYW.css" ] && [ -f "logo-3976e73d.svg" ]; then
         sudo cp app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
