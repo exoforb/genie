@@ -150,25 +150,24 @@ fi
 
 # Fungsi untuk cek versi MongoDB yang terinstall
 check_mongo_version() {
+    # Cek apakah MongoDB service berjalan
     if sudo systemctl is-active --quiet mongod; then
-        # Coba dengan mongosh dulu (MongoDB 5.0+)
-        if command -v mongosh > /dev/null 2>&1; then
-            MONGO_VERSION=$(mongosh --quiet --eval "db.version()" 2>/dev/null | head -1)
-        # Fallback ke mongo (MongoDB 4.4 dan older)
-        elif command -v mongo > /dev/null 2>&1; then
-            MONGO_VERSION=$(mongo --quiet --eval "db.version()" 2>/dev/null | head -1)
-        else
-            return 1
-        fi
-        
-        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | cut -d '.' -f 1)
-        EXPECTED_MAJOR=$(echo "$MONGODB_VERSION" | cut -d '.' -f 1)
-        
-        if [ "$MONGO_MAJOR_VERSION" -eq "$EXPECTED_MAJOR" ]; then
-            return 0  # Versi cocok
+        # Cek apakah MongoDB sudah terinstall dengan package manager
+        if dpkg -l | grep -q "mongodb-org.*5\."; then
+            echo -e "${GREEN}MongoDB 5.x sudah terinstall dan berjalan${NC}"
+            return 0
+        elif dpkg -l | grep -q "mongodb-org.*6\."; then
+            echo -e "${GREEN}MongoDB 6.x sudah terinstall dan berjalan${NC}"
+            return 0
+        elif dpkg -l | grep -q "mongodb-org.*7\."; then
+            echo -e "${GREEN}MongoDB 7.x sudah terinstall dan berjalan${NC}"
+            return 0
+        elif dpkg -l | grep -q "mongodb-org.*4\."; then
+            echo -e "${GREEN}MongoDB 4.x sudah terinstall dan berjalan${NC}"
+            return 0
         fi
     fi
-    return 1  # Tidak cocok atau tidak terinstall
+    return 1  # Tidak terinstall atau tidak berjalan
 }
 
 # Eksekusi pengecekan
