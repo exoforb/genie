@@ -83,15 +83,19 @@ fi
 
 
 
-echo -e "${GREEN}================= STEP 2: Install MongoDB v7.0 =================${NC}"
+echo -e "${GREEN}================= STEP 2: Install MongoDB v6.0 =================${NC}"
+
+# Install dependencies untuk MongoDB
+sudo apt update
+sudo apt install -y gnupg curl
 
 # Fungsi untuk cek versi MongoDB
 check_mongo_version() {
     if command -v mongod > /dev/null 2>&1 && sudo systemctl is-active --quiet mongod; then
-        MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}')
+        MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}' || echo "")
         # Hilangkan huruf 'v' jika ada di awal versi, lalu ambil angka mayor
         MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | sed 's/^v//' | cut -d '.' -f 1)
-        if [ "$MONGO_MAJOR_VERSION" -eq 7 ]; then
+        if [ "$MONGO_MAJOR_VERSION" -eq 6 ]; then
             return 0  # Versi cocok
         fi
     fi
@@ -107,13 +111,17 @@ if check_mongo_version; then
     echo -e "${GREEN}=================== Lanjut Menginstal GenieACS =============================${NC}"
     echo -e "${GREEN}============================================================================${NC}"
 else
-    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v7.0...${NC}"
+    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v6.0...${NC}"
 
-    # Tambahkan repo MongoDB v7.0
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    # Hapus repo MongoDB lama jika ada
+    sudo rm -f /etc/apt/sources.list.d/mongodb*.list
+    sudo rm -f /usr/share/keyrings/mongodb*.gpg
 
-    # Tambahkan GPG key
-    wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor | sudo tee /usr/share/keyrings/mongodb-server-7.0.gpg > /dev/null
+    # Tambahkan GPG key MongoDB 6.0
+    curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
+
+    # Tambahkan repo MongoDB v6.0
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
 
     # Update & install MongoDB
     sudo apt update
@@ -121,11 +129,22 @@ else
 
     # Enable & start MongoDB
     sudo systemctl enable --now mongod
+    
+    # Tunggu MongoDB siap
+    echo -e "${GREEN}Menunggu MongoDB siap...${NC}"
+    for i in {1..30}; do
+        if sudo systemctl is-active --quiet mongod; then
+            echo -e "${GREEN}MongoDB berhasil dijalankan!${NC}"
+            break
+        fi
+        sleep 1
+    done
 fi
 
 # Verifikasi ulang instalasi MongoDB
 if ! check_mongo_version; then
-    echo -e "${RED}Gagal menginstal MongoDB versi 7.0.${NC}"
+    echo -e "${RED}Gagal menginstal MongoDB versi 6.0.${NC}"
+    echo -e "${RED}Cek log: sudo journalctl -xeu mongod${NC}"
     exit 1
 fi
 
@@ -278,6 +297,12 @@ for ((i = 5; i >= 1; i--)); do
     sleep 1
     echo "Lanjut Install Parameter $i. Tekan ctrl+c untuk membatalkan"
 done
+
+# Cek apakah mongorestore tersedia
+if ! command -v mongorestore > /dev/null 2>&1; then
+    echo -e "${GREEN}Installing mongodb-database-tools untuk mongorestore...${NC}"
+    sudo apt install -y mongodb-database-tools
+fi
 
 cd ..
 sudo mongorestore --db=genieacs --drop genie
