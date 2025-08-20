@@ -2,6 +2,7 @@
 url_install='https://srv.ddns.my.id/genieacs/genieacs/'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 local_ip=$(hostname -I | awk '{print $1}') 
 echo -e "${GREEN}		                              _   			     ${NC}"
@@ -36,6 +37,7 @@ set -e
 
 # Warna untuk output
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 RED='\033[0;31m'
 
@@ -83,45 +85,97 @@ fi
 
 
 
-echo -e "${GREEN}================= STEP 2: Install MongoDB v6.0 =================${NC}"
+echo -e "${GREEN}================= STEP 2: Install MongoDB (Auto-detect version) =================${NC}"
 
 # Install dependencies untuk MongoDB
 sudo apt update
 sudo apt install -y gnupg curl
 
-# Fungsi untuk cek versi MongoDB
+# Fungsi untuk cek CPU support AVX
+check_avx_support() {
+    if grep -q avx /proc/cpuinfo; then
+        return 0  # CPU support AVX
+    else
+        return 1  # CPU tidak support AVX
+    fi
+}
+
+# Fungsi untuk cek CPU support AVX2
+check_avx2_support() {
+    if grep -q avx2 /proc/cpuinfo; then
+        return 0  # CPU support AVX2
+    else
+        return 1  # CPU tidak support AVX2
+    fi
+}
+
+# Tentukan versi MongoDB berdasarkan CPU
+echo -e "${YELLOW}Checking CPU compatibility...${NC}"
+if check_avx2_support; then
+    MONGODB_VERSION="7.0"
+    echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
+elif check_avx_support; then
+    MONGODB_VERSION="6.0"
+    echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
+else
+    MONGODB_VERSION="4.4"
+    echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 4.4${NC}"
+fi
+
+# Fungsi untuk cek versi MongoDB yang terinstall
 check_mongo_version() {
-    if command -v mongod > /dev/null 2>&1 && sudo systemctl is-active --quiet mongod; then
-        MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}' || echo "")
-        # Hilangkan huruf 'v' jika ada di awal versi, lalu ambil angka mayor
-        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | sed 's/^v//' | cut -d '.' -f 1)
-        if [ "$MONGO_MAJOR_VERSION" -eq 6 ]; then
+    if sudo systemctl is-active --quiet mongod; then
+        # Coba dengan mongosh dulu (MongoDB 5.0+)
+        if command -v mongosh > /dev/null 2>&1; then
+            MONGO_VERSION=$(mongosh --quiet --eval "db.version()" 2>/dev/null | head -1)
+        # Fallback ke mongo (MongoDB 4.4 dan older)
+        elif command -v mongo > /dev/null 2>&1; then
+            MONGO_VERSION=$(mongo --quiet --eval "db.version()" 2>/dev/null | head -1)
+        else
+            return 1
+        fi
+        
+        MONGO_MAJOR_VERSION=$(echo "$MONGO_VERSION" | cut -d '.' -f 1)
+        EXPECTED_MAJOR=$(echo "$MONGODB_VERSION" | cut -d '.' -f 1)
+        
+        if [ "$MONGO_MAJOR_VERSION" -eq "$EXPECTED_MAJOR" ]; then
             return 0  # Versi cocok
         fi
     fi
-    return 1  # Tidak cocok atau tidak terinstal
+    return 1  # Tidak cocok atau tidak terinstall
 }
-
 
 # Eksekusi pengecekan
 if check_mongo_version; then
-    MONGO_VERSION=$(mongod --version | grep "db version" | awk '{print $3}')
     echo -e "${GREEN}============================================================================${NC}"
     echo -e "${GREEN}=========== MongoDB versi ${MONGO_VERSION} sudah terinstall. ================${NC}"
     echo -e "${GREEN}=================== Lanjut Menginstal GenieACS =============================${NC}"
     echo -e "${GREEN}============================================================================${NC}"
 else
-    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v6.0...${NC}"
+    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v${MONGODB_VERSION}...${NC}"
 
     # Hapus repo MongoDB lama jika ada
     sudo rm -f /etc/apt/sources.list.d/mongodb*.list
     sudo rm -f /usr/share/keyrings/mongodb*.gpg
+    sudo apt-key del $(apt-key list | grep -i mongodb | awk '{print $2}' | cut -d '/' -f 2) 2>/dev/null || true
 
-    # Tambahkan GPG key MongoDB 6.0
-    curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
-
-    # Tambahkan repo MongoDB v6.0
-    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+    # Install MongoDB berdasarkan versi yang dipilih
+    if [ "$MONGODB_VERSION" = "7.0" ]; then
+        # MongoDB 7.0
+        curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        
+    elif [ "$MONGODB_VERSION" = "6.0" ]; then
+        # MongoDB 6.0
+        curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+        
+    else
+        # MongoDB 4.4 (untuk CPU lama)
+        wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+        # Gunakan focal repo untuk MongoDB 4.4 (karena tidak ada untuk jammy)
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+    fi
 
     # Update & install MongoDB
     sudo apt update
@@ -143,7 +197,7 @@ fi
 
 # Verifikasi ulang instalasi MongoDB
 if ! check_mongo_version; then
-    echo -e "${RED}Gagal menginstal MongoDB versi 6.0.${NC}"
+    echo -e "${RED}Gagal menginstal MongoDB versi ${MONGODB_VERSION}.${NC}"
     echo -e "${RED}Cek log: sudo journalctl -xeu mongod${NC}"
     exit 1
 fi
@@ -301,7 +355,14 @@ done
 # Cek apakah mongorestore tersedia
 if ! command -v mongorestore > /dev/null 2>&1; then
     echo -e "${GREEN}Installing mongodb-database-tools untuk mongorestore...${NC}"
-    sudo apt install -y mongodb-database-tools
+    # Untuk MongoDB 4.4, gunakan versi tools yang compatible
+    if [ "$MONGODB_VERSION" = "4.4" ]; then
+        wget https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
+        sudo dpkg -i mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
+        rm mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
+    else
+        sudo apt install -y mongodb-database-tools
+    fi
 fi
 
 cd ..
