@@ -91,6 +91,12 @@ echo -e "${GREEN}================= STEP 2: Install MongoDB (Auto-detect version)
 sudo apt update
 sudo apt install -y gnupg curl
 
+# Deteksi versi Ubuntu
+UBUNTU_VERSION=$(lsb_release -rs)
+UBUNTU_CODENAME=$(lsb_release -cs)
+
+echo -e "${YELLOW}Detected Ubuntu version: ${UBUNTU_VERSION} (${UBUNTU_CODENAME})${NC}"
+
 # Fungsi untuk cek CPU support AVX
 check_avx_support() {
     if grep -q avx /proc/cpuinfo; then
@@ -109,17 +115,37 @@ check_avx2_support() {
     fi
 }
 
-# Tentukan versi MongoDB berdasarkan CPU
+# Tentukan versi MongoDB berdasarkan Ubuntu version dan CPU
 echo -e "${YELLOW}Checking CPU compatibility...${NC}"
-if check_avx2_support; then
-    MONGODB_VERSION="7.0"
-    echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
-elif check_avx_support; then
-    MONGODB_VERSION="6.0"
-    echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
+
+if [ "${UBUNTU_VERSION}" = "22.04" ]; then
+    # Ubuntu 22.04 - minimal MongoDB 5.0
+    if check_avx2_support; then
+        MONGODB_VERSION="7.0"
+        echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
+    elif check_avx_support; then
+        MONGODB_VERSION="6.0"
+        echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
+    else
+        MONGODB_VERSION="5.0"
+        echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 5.0 (minimum for Ubuntu 22.04)${NC}"
+    fi
+elif [ "${UBUNTU_VERSION}" = "20.04" ]; then
+    # Ubuntu 20.04 - bisa gunakan MongoDB 4.4
+    if check_avx2_support; then
+        MONGODB_VERSION="7.0"
+        echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
+    elif check_avx_support; then
+        MONGODB_VERSION="6.0"
+        echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
+    else
+        MONGODB_VERSION="4.4"
+        echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 4.4${NC}"
+    fi
 else
-    MONGODB_VERSION="4.4"
-    echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 4.4${NC}"
+    # Untuk versi Ubuntu lainnya, gunakan MongoDB 5.0 sebagai default yang aman
+    MONGODB_VERSION="5.0"
+    echo -e "${YELLOW}⚠️ Using MongoDB 5.0 for your Ubuntu version${NC}"
 fi
 
 # Fungsi untuk cek versi MongoDB yang terinstall
@@ -159,21 +185,45 @@ else
     sudo rm -f /usr/share/keyrings/mongodb*.gpg
     sudo apt-key del $(apt-key list | grep -i mongodb | awk '{print $2}' | cut -d '/' -f 2) 2>/dev/null || true
 
+    # Install libssl1.1 untuk Ubuntu 22.04 jika diperlukan MongoDB 4.4
+    if [ "$MONGODB_VERSION" = "4.4" ] && [ "${UBUNTU_VERSION}" = "22.04" ]; then
+        echo -e "${YELLOW}Installing libssl1.1 for MongoDB 4.4 compatibility on Ubuntu 22.04...${NC}"
+        wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+        sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+        rm libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+    fi
+
     # Install MongoDB berdasarkan versi yang dipilih
     if [ "$MONGODB_VERSION" = "7.0" ]; then
         # MongoDB 7.0
         curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        else
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+        fi
         
     elif [ "$MONGODB_VERSION" = "6.0" ]; then
         # MongoDB 6.0
         curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
-        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+        else
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+        fi
+
+    elif [ "$MONGODB_VERSION" = "5.0" ]; then
+        # MongoDB 5.0
+        curl -fsSL https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-5.0.gpg
+        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-5.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+        else
+            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-5.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+        fi
         
     else
-        # MongoDB 4.4 (untuk CPU lama)
+        # MongoDB 4.4 (untuk Ubuntu 20.04)
         wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
-        # Gunakan focal repo untuk MongoDB 4.4 (karena tidak ada untuk jammy)
         echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
     fi
 
