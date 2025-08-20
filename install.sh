@@ -1,20 +1,10 @@
 #!/bin/bash
-url_install='https://srv.ddns.my.id/genieacs/genieacs/'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 local_ip=$(hostname -I | awk '{print $1}') 
-echo -e "${GREEN}		                              _   			     ${NC}"
-echo -e "${GREEN}		                             | |  		             ${NC}"
-echo -e "${GREEN}		   _____  _____    _ __   ___| |_ 			     ${NC}"
-echo -e "${GREEN}		  / _ \ \/ / _ \  | '_ \ / _ \ __|		     	     ${NC}"
-echo -e "${GREEN}		 |  __/>  < (_) | | | | |  __/ |_ 			     ${NC}"
-echo -e "${GREEN}		  \___/_/\_\___/  |_| |_|\___|\__|			     ${NC}"
 
-
-
-      
 echo -e "${GREEN}============================ Install GenieACS. =============================${NC}"
 echo -e "${GREEN}======================== NodeJS, MongoDB, GenieACS, ========================${NC}"
 
@@ -23,241 +13,33 @@ read confirmation
 
 if [ "$confirmation" != "y" ]; then
     echo -e "${GREEN}Install dibatalkan..${NC}"
-   
     exit 1
 fi
+
 for ((i = 5; i >= 1; i--)); do
 	sleep 1
     echo "Tunggu Untuk Melanjutkan... $i. Tekan ctrl+c untuk membatalkan"
 done
 
-#!/bin/bash
-
 set -e
 
-# Warna untuk output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-RED='\033[0;31m'
-
-# Ambil IP lokal
-local_ip=$(hostname -I | awk '{print $1}')
-
-echo -e "${GREEN}================= STEP 1: Install Node.js v18 =================${NC}"
-# Fungsi untuk cek versi Node.js
-check_node_version() {
-    if command -v node > /dev/null 2>&1; then
-        NODE_VERSION=$(node -v | cut -d 'v' -f 2)
-        NODE_MAJOR_VERSION=$(echo "$NODE_VERSION" | cut -d '.' -f 1)
-
-        if [ "$NODE_MAJOR_VERSION" -eq 18 ]; then
-            return 0  # Versi cocok
-        else
-            return 1  # Versi tidak cocok
-        fi
-    else
-        return 1  # Node tidak ditemukan
-    fi
-}
-
-# Eksekusi pengecekan
-if check_node_version; then
+echo -e "${GREEN}================= STEP 1: Check Node.js v18 =================${NC}"
+if command -v node > /dev/null 2>&1; then
     NODE_VERSION=$(node -v | cut -d 'v' -f 2)
-    echo -e "${GREEN}============================================================================${NC}"
-    echo -e "${GREEN}=========== Node.js versi ${NODE_VERSION} sudah terinstall. ================${NC}"
-    echo -e "${GREEN}========================= Lanjut install Mongo DB ==========================${NC}"
-    echo -e "${GREEN}============================================================================${NC}"
+    echo -e "${GREEN}Node.js versi ${NODE_VERSION} sudah terinstall.${NC}"
 else
-    echo -e "${GREEN}Node.js belum terinstall atau versinya tidak sesuai. Menginstal versi 18...${NC}"
-    # Install Node.js v18
+    echo -e "${GREEN}Installing Node.js v18...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
     sudo apt install -y nodejs
 fi
 
-# Cek ulang setelah install
-if ! check_node_version; then
-    echo -e "${RED}Gagal menginstal Node.js versi 18.${NC}"
-    exit 1
-fi
-
-
-
-
-
-echo -e "${GREEN}================= STEP 2: Install MongoDB (Auto-detect version) =================${NC}"
-
-# Install dependencies untuk MongoDB
-sudo apt update
-sudo apt install -y gnupg curl
-
-# Deteksi versi Ubuntu
-UBUNTU_VERSION=$(lsb_release -rs)
-UBUNTU_CODENAME=$(lsb_release -cs)
-
-echo -e "${YELLOW}Detected Ubuntu version: ${UBUNTU_VERSION} (${UBUNTU_CODENAME})${NC}"
-
-# Fungsi untuk cek CPU support AVX
-check_avx_support() {
-    if grep -q avx /proc/cpuinfo; then
-        return 0  # CPU support AVX
-    else
-        return 1  # CPU tidak support AVX
-    fi
-}
-
-# Fungsi untuk cek CPU support AVX2
-check_avx2_support() {
-    if grep -q avx2 /proc/cpuinfo; then
-        return 0  # CPU support AVX2
-    else
-        return 1  # CPU tidak support AVX2
-    fi
-}
-
-# Tentukan versi MongoDB berdasarkan Ubuntu version dan CPU
-echo -e "${YELLOW}Checking CPU compatibility...${NC}"
-
-if [ "${UBUNTU_VERSION}" = "22.04" ]; then
-    # Ubuntu 22.04 - minimal MongoDB 5.0
-    if check_avx2_support; then
-        MONGODB_VERSION="7.0"
-        echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
-    elif check_avx_support; then
-        MONGODB_VERSION="6.0"
-        echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
-    else
-        MONGODB_VERSION="5.0"
-        echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 5.0 (minimum for Ubuntu 22.04)${NC}"
-    fi
-elif [ "${UBUNTU_VERSION}" = "20.04" ]; then
-    # Ubuntu 20.04 - bisa gunakan MongoDB 4.4
-    if check_avx2_support; then
-        MONGODB_VERSION="7.0"
-        echo -e "${GREEN}✅ CPU supports AVX2 - Installing MongoDB 7.0${NC}"
-    elif check_avx_support; then
-        MONGODB_VERSION="6.0"
-        echo -e "${GREEN}✅ CPU supports AVX - Installing MongoDB 6.0${NC}"
-    else
-        MONGODB_VERSION="4.4"
-        echo -e "${YELLOW}⚠️ CPU doesn't support AVX - Installing MongoDB 4.4${NC}"
-    fi
-else
-    # Untuk versi Ubuntu lainnya, gunakan MongoDB 5.0 sebagai default yang aman
-    MONGODB_VERSION="5.0"
-    echo -e "${YELLOW}⚠️ Using MongoDB 5.0 for your Ubuntu version${NC}"
-fi
-
-# Fungsi untuk cek versi MongoDB yang terinstall
-check_mongo_version() {
-    # Cek apakah MongoDB service berjalan
-    if sudo systemctl is-active --quiet mongod; then
-        # Cek apakah MongoDB sudah terinstall dengan package manager
-        if dpkg -l | grep -q "mongodb-org.*5\."; then
-            echo -e "${GREEN}MongoDB 5.x sudah terinstall dan berjalan${NC}"
-            return 0
-        elif dpkg -l | grep -q "mongodb-org.*6\."; then
-            echo -e "${GREEN}MongoDB 6.x sudah terinstall dan berjalan${NC}"
-            return 0
-        elif dpkg -l | grep -q "mongodb-org.*7\."; then
-            echo -e "${GREEN}MongoDB 7.x sudah terinstall dan berjalan${NC}"
-            return 0
-        elif dpkg -l | grep -q "mongodb-org.*4\."; then
-            echo -e "${GREEN}MongoDB 4.x sudah terinstall dan berjalan${NC}"
-            return 0
-        fi
-    fi
-    return 1  # Tidak terinstall atau tidak berjalan
-}
-
-# Eksekusi pengecekan
-if check_mongo_version; then
-    echo -e "${GREEN}============================================================================${NC}"
-    echo -e "${GREEN}=========== MongoDB versi ${MONGO_VERSION} sudah terinstall. ================${NC}"
-    echo -e "${GREEN}=================== Lanjut Menginstal GenieACS =============================${NC}"
-    echo -e "${GREEN}============================================================================${NC}"
-else
-    echo -e "${GREEN}MongoDB belum terinstall atau versinya tidak sesuai. Menginstal MongoDB v${MONGODB_VERSION}...${NC}"
-
-    # Hapus repo MongoDB lama jika ada
-    sudo rm -f /etc/apt/sources.list.d/mongodb*.list
-    sudo rm -f /usr/share/keyrings/mongodb*.gpg
-    sudo apt-key del $(apt-key list | grep -i mongodb | awk '{print $2}' | cut -d '/' -f 2) 2>/dev/null || true
-
-    # Install libssl1.1 untuk Ubuntu 22.04 jika diperlukan MongoDB 4.4
-    if [ "$MONGODB_VERSION" = "4.4" ] && [ "${UBUNTU_VERSION}" = "22.04" ]; then
-        echo -e "${YELLOW}Installing libssl1.1 for MongoDB 4.4 compatibility on Ubuntu 22.04...${NC}"
-        wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-        sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-        rm libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-    fi
-
-    # Install MongoDB berdasarkan versi yang dipilih
-    if [ "$MONGODB_VERSION" = "7.0" ]; then
-        # MongoDB 7.0
-        curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-        else
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-        fi
-        
-    elif [ "$MONGODB_VERSION" = "6.0" ]; then
-        # MongoDB 6.0
-        curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
-        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-        else
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-        fi
-
-    elif [ "$MONGODB_VERSION" = "5.0" ]; then
-        # MongoDB 5.0
-        curl -fsSL https://www.mongodb.org/static/pgp/server-5.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-5.0.gpg
-        if [ "${UBUNTU_CODENAME}" = "jammy" ]; then
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-5.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
-        else
-            echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-5.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
-        fi
-        
-    else
-        # MongoDB 4.4 (untuk Ubuntu 20.04)
-        wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
-        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-    fi
-
-    # Update & install MongoDB
-    sudo apt update
-    sudo apt install -y mongodb-org
-
-    # Enable & start MongoDB
-    sudo systemctl enable --now mongod
-    
-    # Tunggu MongoDB siap
-    echo -e "${GREEN}Menunggu MongoDB siap...${NC}"
-    for i in {1..30}; do
-        if sudo systemctl is-active --quiet mongod; then
-            echo -e "${GREEN}MongoDB berhasil dijalankan!${NC}"
-            break
-        fi
-        sleep 1
-    done
-fi
-
-# Verifikasi ulang instalasi MongoDB
-if ! check_mongo_version; then
-    echo -e "${RED}Gagal menginstal MongoDB versi ${MONGODB_VERSION}.${NC}"
-    echo -e "${RED}Cek log: sudo journalctl -xeu mongod${NC}"
-    exit 1
-fi
-
-
-
-
+echo -e "${GREEN}================= STEP 2: MongoDB (Manual Installation Required) =================${NC}"
+echo -e "${YELLOW}Pastikan MongoDB sudah terinstall secara manual sebelum melanjutkan.${NC}"
 
 echo -e "${GREEN}================= STEP 3: Install GenieACS 1.2.13 ================${NC}"
 
-if ! systemctl is-active --quiet genieacs-cwmp; then
+if ! systemctl is-active --quiet genieacs-cwmp 2>/dev/null; then
+    echo -e "${GREEN}Installing GenieACS...${NC}"
     npm install -g genieacs@1.2.13
 
     useradd --system --no-create-home --user-group genieacs || true
@@ -355,15 +137,11 @@ EOF
 
     echo -e "${GREEN}================== Sukses install GenieACS ==================${NC}"
 else
-    echo -e "${GREEN}============================================================================${NC}"
-    echo -e "${GREEN}================ GenieACS 1.2.13 sudah terinstall.==========================${NC}"
-    echo -e "${GREEN}=================== Lanjut Install Parameter ===============================${NC}"
-    echo -e "${GREEN}============================================================================${NC}"
+    echo -e "${GREEN}GenieACS sudah terinstall dan berjalan.${NC}"
 fi
 
 echo -e "${GREEN}============================================================================${NC}"
 echo -e "${GREEN}========== GenieACS UI akses port 3000. : http://$local_ip:3000 ============${NC}"
-echo -e "${GREEN}============================================================================${NC}"
 echo -e "${GREEN}============================================================================${NC}"
 
 # CSS Custom
@@ -376,12 +154,9 @@ if [ "$install_css" == "y" ]; then
     if [ -f "app-LU66VFYW.css" ] && [ -f "logo-3976e73d.svg" ]; then
         sudo cp app-LU66VFYW.css /usr/lib/node_modules/genieacs/public/
         sudo cp logo-3976e73d.svg /usr/lib/node_modules/genieacs/public/
-echo -e "${GREEN}============================================================================${NC}"
-echo -e "${GREEN}======================= Custom CSS sudah terinstall. =======================${NC}"
-echo -e "${GREEN}========================= Lanjut install Parameter ==========================${NC}"
-echo -e "${GREEN}============================================================================${NC}"
+        echo -e "${GREEN}Custom CSS sudah terinstall.${NC}"
     else
-        echo -e "${RED}❌ File CSS atau logo tidak ditemukan di folder ./genie. Pastikan file tersebut ada.${NC}"
+        echo -e "${RED}❌ File CSS atau logo tidak ditemukan.${NC}"
     fi
 else
     echo -e "${GREEN}Lewati install CSS kustom.${NC}"
@@ -404,14 +179,7 @@ done
 # Cek apakah mongorestore tersedia
 if ! command -v mongorestore > /dev/null 2>&1; then
     echo -e "${GREEN}Installing mongodb-database-tools untuk mongorestore...${NC}"
-    # Untuk MongoDB 4.4, gunakan versi tools yang compatible
-    if [ "$MONGODB_VERSION" = "4.4" ]; then
-        wget https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
-        sudo dpkg -i mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
-        rm mongodb-database-tools-ubuntu2004-x86_64-100.9.0.deb
-    else
-        sudo apt install -y mongodb-database-tools
-    fi
+    sudo apt install -y mongodb-database-tools
 fi
 
 cd ..
